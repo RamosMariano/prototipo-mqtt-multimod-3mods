@@ -1,0 +1,26 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    environment:
+      - BROKER_HOST=localhost
+      - BROKER_PORT=1883
+    ports:
+      - "8080:8080"
+
+  consumer:
+    build:
+      context: .
+      dockerfile: consumer/Dockerfile
+    environment:
+      - BROKER_HOST=localhost
+      - BROKER_PORT=1883
+
+  simulator:
+    build:
+      context: .
+      dockerfile: simulator/Dockerfile
+    environment:
+      - BROKER_HOST=localhost
+      - BROKER_PORT=1883
