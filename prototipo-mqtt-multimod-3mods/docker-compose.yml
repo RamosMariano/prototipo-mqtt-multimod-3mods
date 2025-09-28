@@ -23,10 +23,10 @@ services:
       - TOPIC_INDOOR=sensors/indoor/temperature
       - SETPOINT=21
 
-  eco-warm:
+  simulator:
     build:
-      context: ./eco-warm
-    container_name: eco-warm
+      context: ./simulator
+    container_name: simulator
     depends_on:
       - broker-mqtt
     environment:
