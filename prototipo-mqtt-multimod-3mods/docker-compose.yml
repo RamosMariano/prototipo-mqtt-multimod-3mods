@@ -12,7 +12,8 @@ services:
 
   consumer:
     build:
-      context: ./consumer
+      context: .
+      dockerfile: consumer/Dockerfile
     container_name: consumer
     depends_on:
       - broker-mqtt
@@ -22,6 +23,7 @@ services:
       - TOPIC_OUTDOOR=sensors/outdoor/temperature
       - TOPIC_INDOOR=sensors/indoor/temperature
       - SETPOINT=21
+
 
   simulator:
     build:
