@@ -1,20 +1,23 @@
-# Etapa de build
+# ====== BUILD ======
 FROM maven:3.9-eclipse-temurin-17 AS build
-WORKDIR /app
-# Copiá solo el pom primero para aprovechar cache
-COPY pom.xml .
-RUN mvn -q -DskipTests dependency:go-offline
-# Ahora copiá el código
-COPY src ./src
-RUN mvn -q -DskipTests package
+WORKDIR /workspace
 
-# Etapa runtime (JRE)
+COPY pom.xml .
+COPY api/pom.xml api/pom.xml
+COPY consumer/pom.xml consumer/pom.xml
+COPY simulator/pom.xml simulator/pom.xml
+
+RUN mvn -q -DskipTests -pl simulator -am dependency:go-offline
+
+COPY . .
+
+RUN mvn -q -DskipTests -pl simulator -am package
+
+# ====== RUNTIME ======
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
-# Copiá el JAR empacado por assembly/shade
-# Si usás assembly:
-COPY target/simulator-jar-with-dependencies.jar /app/simulator.jar
-# Si usás shade y el JAR se llama simulator.jar, ajustá esta línea.
+
+COPY --from=build /workspace/simulator/target/simulator.jar /app/simulator.jar
 
 ENV JAVA_TOOL_OPTIONS="-Dfile.encoding=UTF-8"
 CMD ["java","-jar","/app/simulator.jar"]

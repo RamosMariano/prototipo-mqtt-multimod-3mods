@@ -26,32 +26,32 @@
 
   <build>
     <plugins>
-      <!-- Fat-jar con maven-assembly-plugin (manteniendo tu elección) -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-assembly-plugin</artifactId>
-        <version>3.6.0</version>
-        <configuration>
-          <archive>
-            <manifest>
-              <!-- AJUSTAR a tu clase main real (más abajo te dejo nombre sugerido) -->
-              <mainClass>com.tuapp.simulator.app.SimulatorMain</mainClass>
-            </manifest>
-          </archive>
-          <descriptorRefs>
-            <descriptorRef>jar-with-dependencies</descriptorRef>
-          </descriptorRefs>
-          <!-- esto cambia el nombre base del ensamblado -->
-          <finalName>simulator</finalName>
-        </configuration>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.5.3</version>
         <executions>
           <execution>
-            <id>make-assembly</id>
             <phase>package</phase>
-            <goals><goal>single</goal></goals>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
+              <finalName>simulator</finalName>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>com.tuapp.simulator.app.SimulatorMain</mainClass>
+                </transformer>
+                <!-- Si alguna lib usa META-INF/services, descomenta esto:
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                -->
+              </transformers>
+            </configuration>
           </execution>
         </executions>
       </plugin>
     </plugins>
   </build>
+
 </project>

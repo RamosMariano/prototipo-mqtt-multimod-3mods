@@ -25,8 +25,8 @@ services:
 
   simulator:
     build:
-      context: ./simulator
-    container_name: simulator
+      context: .
+      dockerfile: simulator/Dockerfile
     depends_on:
       - broker-mqtt
     environment:
