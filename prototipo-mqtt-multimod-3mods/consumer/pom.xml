@@ -2,6 +2,7 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
+
   <parent>
     <groupId>com.tuapp</groupId>
     <artifactId>prototipo-mqtt</artifactId>
@@ -12,15 +13,29 @@
   <name>consumer</name>
   <packaging>jar</packaging>
 
+  <properties>
+    <maven.compiler.release>17</maven.compiler.release>
+    <paho.version>1.2.5</paho.version>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>org.eclipse.paho</groupId>
       <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+      <version>${paho.version}</version>
     </dependency>
   </dependencies>
 
   <build>
     <plugins>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.11.0</version>
+        <configuration>
+          <release>${maven.compiler.release}</release>
+        </configuration>
+      </plugin>
+
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
@@ -30,11 +45,11 @@
             <phase>package</phase>
             <goals><goal>shade</goal></goals>
             <configuration>
-              <createDependencyReducedPom>false</createDependencyReducedPom>
               <finalName>consumer</finalName>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                  <mainClass>com.tuapp.consumer.app.ConsumerMain</mainClass>
+                  <mainClass>com.tuapp.consumer.app.ConsumerApplication</mainClass>
                 </transformer>
               </transformers>
             </configuration>
@@ -43,5 +58,4 @@
       </plugin>
     </plugins>
   </build>
-
 </project>
