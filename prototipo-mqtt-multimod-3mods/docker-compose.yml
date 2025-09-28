@@ -1,26 +1,37 @@
 services:
-  api:
-    build:
-      context: .
-      dockerfile: api/Dockerfile
-    environment:
-      - BROKER_HOST=localhost
-      - BROKER_PORT=1883
+  broker-mqtt:
+    image: eclipse-mosquitto:2
+    container_name: broker-mqtt
     ports:
-      - "8080:8080"
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
 
   consumer:
     build:
-      context: .
-      dockerfile: consumer/Dockerfile
+      context: ./consumer
+    container_name: consumer
+    depends_on:
+      - broker-mqtt
     environment:
-      - BROKER_HOST=localhost
+      - BROKER_HOST=broker-mqtt
       - BROKER_PORT=1883
+      - TOPIC_OUTDOOR=sensors/outdoor/temperature
+      - TOPIC_INDOOR=sensors/indoor/temperature
+      - SETPOINT=21
 
-  simulator:
+  eco-warm:
     build:
-      context: .
-      dockerfile: simulator/Dockerfile
+      context: ./eco-warm
+    container_name: eco-warm
+    depends_on:
+      - broker-mqtt
     environment:
-      - BROKER_HOST=localhost
+      - BROKER_HOST=broker-mqtt
       - BROKER_PORT=1883
+      - TOPIC_OUTDOOR=sensors/outdoor/temperature
+      - TOPIC_INDOOR=sensors/indoor/temperature
+      - SETPOINT=21
