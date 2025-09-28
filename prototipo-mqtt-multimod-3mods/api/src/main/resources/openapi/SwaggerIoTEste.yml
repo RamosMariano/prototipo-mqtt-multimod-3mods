@@ -1,0 +1,174 @@
+openapi: 3.0.4
+info:
+  title: API Sensores IoTEste
+  description: >
+    El sistema IoTEste EcoWarm busca mejorar el confort térmico y optimizar el consumo eléctrico en hogares y oficinas con calefacción por losa radiante. La aplicación gestiona sensores de temperatura/humedad y switches de calefacción, aprovechando tarifas multihorario de UTE y pronósticos climáticos para tomar decisiones inteligentes de encendido/apagado.
+    Nuestra API permite consultar los últimos registros de humedad y temperatura captados por los sensores, además de el consumo energético y secuencias de temperatura/humedad durante intervalos de tiempo en días.
+  version: 1.0.0
+
+servers:
+  - url: http://RELLENARCONLAIPREAL
+
+paths:
+  /temperature/latest:
+    get:
+      summary: Consultar temperatura (Último Registro)
+      responses:
+        '200':
+          description: Última lectura de temperatura
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LecturaTemperatura'
+
+  /humidity/latest:
+    get:
+      summary: Consultar humedad (Último Registro)
+      responses:
+        '200':
+          description: Última lectura de humedad
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LecturaHumedad'
+
+  /energy/consumption:
+    get:
+      summary: Consultar energía (FALTA COMPLETAR)
+      responses:
+        '200':
+          description: FALTA COMPLETAR
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnergiaShelly'
+
+  /temperature/sequence:
+    get:
+      summary: Consultar Secuencia de Valores de Temperatura
+      parameters:
+        - in: query
+          name: fechaInicio
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: fechaFin
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Secuencia de lecturas de temperatura
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecuenciaTemperatura'
+
+  /humidity/sequence:
+    get:
+      summary: Consultar Secuencia de Vvalores de Humedad
+      parameters:
+        - in: query
+          name: fechaInicio
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: fechaFin
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Secuencia de lecturas de humedad
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecuenciaHumedad'
+
+components:
+  schemas:
+    LecturaTemperatura:
+      type: object
+      description: Última Lectura individual de temperatura generada por los sensores.
+      properties:
+        value:
+          type: number
+          format: float
+          example: 22.4
+        unit:
+          type: string
+          example: "°C"
+        ts:
+          type: string
+          format: date-time
+          example: "2025-09-23T15:30:00Z"
+
+    LecturaHumedad:
+      type: object
+      description: Última Lectura individual de humedad generada por los sensores.
+      properties:
+        value:
+          type: number
+          format: float
+          example: 45.2
+        unit:
+          type: string
+          example: "%"
+        ts:
+          type: string
+          format: date-time
+          example: "2025-09-23T15:30:00Z"
+
+    SecuenciaTemperatura:
+      type: array
+      description: Lista de lecturas de temperatura entre dos fechas.
+      items:
+        $ref: '#/components/schemas/LecturaTemperatura'
+      example:
+        - value: 21.8
+          unit: "°C"
+          ts: "2025-09-23T10:00:00Z"
+        - value: 22.1
+          unit: "°C"
+          ts: "2025-09-23T11:00:00Z"
+        - value: 22.4
+          unit: "°C"
+          ts: "2025-09-23T12:00:00Z"
+
+    SecuenciaHumedad:
+      type: array
+      description: Lista de lecturas de humedad entre dos fechas.
+      items:
+        $ref: '#/components/schemas/LecturaHumedad'
+      example:
+        - value: 43.1
+          unit: "%"
+          ts: "2025-09-23T10:00:00Z"
+        - value: 44.5
+          unit: "%"
+          ts: "2025-09-23T11:00:00Z"
+        - value: 45.2
+          unit: "%"
+          ts: "2025-09-23T12:00:00Z"
+
+    EnergiaShelly:
+      type: object
+      description: FALTA COMPLETAR Y VER SI LO HACEMOS POR DÍA O REGISTRO
+      properties:
+        value:
+          type: number
+          format: float
+          example: 3.75
+        unit:
+          type: string
+          example: "kWh"
+        ts:
+          type: string
+          format: date-time
+          example: "2025-09-23T00:00:00Z"
