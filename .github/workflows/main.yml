@@ -1,0 +1,14 @@
+name: Hello Actions
+
+on:
+  push:
+    branches: [ "master" ]
+
+jobs:
+  say-hello:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Echo
+        run: echo "Actions está funcionando ✅"
