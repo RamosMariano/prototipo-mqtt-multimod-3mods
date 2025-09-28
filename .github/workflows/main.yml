@@ -1,0 +1,32 @@
+name: CI - Maven (multi-module)
+
+on:
+  push:
+    branches: [ "master" ]   # cambia a "main" si corresponde
+  pull_request:
+    branches: [ "master" ]
+
+concurrency:
+  group: ci-maven-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        java: [ '17' ]  # podés agregar '21' si querés matrix con ambas
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Temurin JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+
+      - name: Validate & Test
+        run: |
+          mvn -B -ntp -DskipITs=false -Dstyle.color=always verify
