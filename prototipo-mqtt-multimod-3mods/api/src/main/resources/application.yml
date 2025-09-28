@@ -1,0 +1,7 @@
+server:
+  port: 8080
+
+app:
+  mqtt:
+    broker: ${BROKER_HOST:localhost}
+    port: ${BROKER_PORT:1883}
