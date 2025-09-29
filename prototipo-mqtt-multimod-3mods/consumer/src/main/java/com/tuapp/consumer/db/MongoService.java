@@ -7,6 +7,7 @@ import com.mongodb.client.MongoDatabase;
 import com.tuapp.consumer.config.MongoEnv;
 import org.bson.Document;
 
+
 public class MongoService implements AutoCloseable {
     private final MongoClient client;
     private final MongoDatabase db;
