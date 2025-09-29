@@ -10,20 +10,63 @@ services:
       - ./mosquitto/data:/mosquitto/data
       - ./mosquitto/log:/mosquitto/log
 
+  # MongoDB para almacenar lecturas de sensores
+  mongodb:
+    image: mongo:7
+    container_name: mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"   # usa 127.0.0.1:27017:27017 si querés exponer sólo a localhost
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME:-iot}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-iotpass}
+      - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE:-iotdb}
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ ping: 1 })' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # (Opcional) UI web para explorar MongoDB
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: mongo-express
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongodb
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_MONGODB_ENABLE_ADMIN=true
+      - ME_CONFIG_BASICAUTH=false
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=${MONGO_INITDB_ROOT_USERNAME:-iot}
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-iotpass}
+
   consumer:
     build:
       context: .
       dockerfile: consumer/Dockerfile
-    container_name: consumer
     depends_on:
-      - broker-mqtt
+      broker-mqtt:
+        condition: service_started
+      mongodb:
+        condition: service_healthy
     environment:
+      # MQTT (lo que lee Env.fromEnv)
       - BROKER_HOST=broker-mqtt
       - BROKER_PORT=1883
       - TOPIC_OUTDOOR=sensors/outdoor/temperature
       - TOPIC_INDOOR=sensors/indoor/temperature
       - SETPOINT=21
-
+      # Mongo (lo que usa MongoEnv/MongoService)
+      - MONGO_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME:-iot}:${MONGO_INITDB_ROOT_PASSWORD:-iotpass}@mongodb:27017/${MONGO_INITDB_DATABASE:-iotdb}?authSource=admin
+      - MONGO_DB=${MONGO_INITDB_DATABASE:-iotdb}
+      - MONGO_COLLECTION=${MONGO_COLLECTION:-readings}
 
   simulator:
     build:
@@ -37,3 +80,8 @@ services:
       - TOPIC_OUTDOOR=sensors/outdoor/temperature
       - TOPIC_INDOOR=sensors/indoor/temperature
       - SETPOINT=21
+      # Intervalo de publicación en milisegundos (default = 300000 ms = 5 min)
+      - SIM_PUBLISH_INTERVAL_MS=${SIM_PUBLISH_INTERVAL_MS:-300000}
+
+volumes:
+  mongo-data:

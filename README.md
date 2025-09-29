@@ -77,6 +77,34 @@ prototipo-mqtt-multimod-3mods/
 
 ---
 
+## ⏱️ Configuración del intervalo de publicación del simulador
+
+
+Variable de entorno `SIM_PUBLISH_INTERVAL_MS` para definir el **intervalo de publicación** en milisegundos (por defecto `300000 ms = 5 min`).
+
+Ejemplo en `docker-compose.yml`:
+
+```yaml
+  simulator:
+    build:
+      context: .
+      dockerfile: simulator/Dockerfile
+    depends_on:
+      - broker-mqtt
+    environment:
+      - BROKER_HOST=broker-mqtt
+      - BROKER_PORT=1883
+      - TOPIC_OUTDOOR=sensors/outdoor/temperature
+      - TOPIC_INDOOR=sensors/indoor/temperature
+      - SETPOINT=21
+      # Intervalo de publicación en milisegundos (default = 300000 ms = 5 min)
+      - SIM_PUBLISH_INTERVAL_MS=${SIM_PUBLISH_INTERVAL_MS:-300000}
+```
+
+
+
+---
+
 ## 🛠️ Requisitos
 
 - Docker y Docker Compose instalados
