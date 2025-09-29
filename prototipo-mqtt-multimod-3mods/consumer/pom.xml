@@ -24,11 +24,6 @@
       <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
       <version>${paho.version}</version>
     </dependency>
-    <dependency>
-      <groupId>org.mongodb</groupId>
-      <artifactId>mongodb-driver-sync</artifactId>
-      <version>5.1.0</version>
-    </dependency>
     <!-- MongoDB Java Driver (sincrónico) -->
     <dependency>
       <groupId>org.mongodb</groupId>
