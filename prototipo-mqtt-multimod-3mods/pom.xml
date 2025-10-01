@@ -16,12 +16,14 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>17</maven.compiler.source>
-    <maven.compiler.target>17</maven.compiler.target>
+    <java.version>21</java.version>
+    <maven.compiler.release>${java.version}</maven.compiler.release>
+    <maven.compiler.parameters>true</maven.compiler.parameters>
+    <spring.boot.version>3.3.4</spring.boot.version>
     <paho.version>1.2.5</paho.version>
     <gson.version>2.11.0</gson.version>
     <slf4j.version>2.0.16</slf4j.version>
-    <spring.boot.version>3.3.4</spring.boot.version>
+    <mongodb.driver.version>5.1.0</mongodb.driver.version>
   </properties>
 
   <dependencyManagement>
@@ -55,5 +57,44 @@
       </dependency>
     </dependencies>
   </dependencyManagement>
+  <build>
+    <pluginManagement>
+      <plugins>
+        <!-- Compilación a release 21 -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.13.0</version>
+          <configuration>
+            <release>${maven.compiler.release}</release>
+            <parameters>${maven.compiler.parameters}</parameters>
+          </configuration>
+        </plugin>
+
+        <!-- Enforcer recomendado -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>3.5.0</version>
+          <executions>
+            <execution>
+              <id>enforce-versions</id>
+              <goals><goal>enforce</goal></goals>
+              <configuration>
+                <rules>
+                  <requireMavenVersion>
+                    <version>[3.9.0,)</version>
+                  </requireMavenVersion>
+                  <requireJavaVersion>
+                    <version>[21,)</version>
+                  </requireJavaVersion>
+                </rules>
+              </configuration>
+            </execution>
+          </executions>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
 
 </project>
