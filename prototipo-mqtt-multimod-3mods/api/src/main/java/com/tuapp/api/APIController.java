@@ -236,4 +236,13 @@ public class APIController {
             );
         }
     }
+    
+    /**
+     * cURL Test
+     */
+    @GetMapping("/testing")
+    public String getTest() {
+           
+            return "Está vivo!";
+    }
 }
