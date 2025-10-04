@@ -37,9 +37,15 @@ public class SensorMqttRunner {
         final String USER          = env("MQTT_USER", "");
         final String PASS          = env("MQTT_PASS", "");
         final String TOPIC_OUTDOOR = env("TOPIC_OUTDOOR", "sensors/outdoor/temperature");
+        final String TOPIC_OUTDOOR_H = env("TOPIC_OUTDOOR_H", "sensors/outdoor/humidity");
         final String TOPIC_INDOOR  = env("TOPIC_INDOOR",  "sensors/indoor/temperature");
         final int QOS              = Integer.parseInt(env("MQTT_QOS", "0"));
         final boolean RETAIN       = Boolean.parseBoolean(env("MQTT_RETAIN", "false"));
+        final String TOPIC_R1_T = env("TOPIC_R1_T", "sensors/room1/temperature");
+        final String TOPIC_R1_H  = env("TOPIC_R1_H",  "sensors/room1/humidity");
+        final String TOPIC_SW1_S = env("TOPIC_SW1_S", "switches/room1/state");
+        final String TOPIC_SW1_P  = env("TOPIC_SW1_P",  "switches/room1/power");
+        final String TOPIC_SW1_E = env("TOPIC_SW1_E", "switches/room1/energy");
 
 
         final double TEMP_EXTERIOR = envd("TEMP_EXTERIOR", 8.0);
@@ -80,13 +86,49 @@ public class SensorMqttRunner {
 
                 // publicar cada STEPS_PER_PUB pasos
                 if (step % STEPS_PER_PUB == 0) {
-                    Map<String, Object> outMsg = new HashMap<>();
-                    outMsg.put("sensorId", "outdoor-ht");
-                    outMsg.put("type", "temperature");
-                    outMsg.put("unit", "C");
-                    outMsg.put("value", TEMP_EXTERIOR);
-                    outMsg.put("ts", ts);
 
+                    Map<String, Object> outMsgTemp = new HashMap<>();
+                    outMsgTemp.put("deviceId", "outdoor-ht");
+                    outMsgTemp.put("temperature", TEMP_EXTERIOR);
+                    outMsgTemp.put("unit", "C");
+                    outMsgTemp.put("ts", ts);
+                    Map<String, Object> outMsgHum = new HashMap<>();
+                    outMsgHum.put("deviceId", "outdoor-ht");
+                    outMsgHum.put("humidity", "60");
+                    outMsgHum.put("unit", "%");
+                    outMsgHum.put("ts", ts);
+
+                    Map<String, Object> inMsgTemp = new HashMap<>();
+                    inMsgTemp.put("deviceId", "indoor-ht");
+                    inMsgTemp.put("temperature", Math.round(newTin * 10.0) / 10.0);
+                    inMsgTemp.put("unit", "C");
+                    inMsgTemp.put("ts", ts);
+                    Map<String, Object> inMsgHum = new HashMap<>();
+                    inMsgHum.put("deviceId", "indoor-ht");
+                    inMsgHum.put("humidity", "60");
+                    inMsgHum.put("unit", "%");
+                    inMsgHum.put("ts", ts);
+
+                    Map<String, Object> inSwMsgState = new HashMap<>();
+                    inSwMsgState.put("deviceId", "indoor-sw");
+                    inSwMsgState.put("state",calefOn ? "ON" : "OFF" );
+                    inSwMsgState.put("ts", ts);
+                    Map<String, Object> inSwMsgPower = new HashMap<>();
+                    inSwMsgPower.put("deviceId", "indoor-sw");
+                    inSwMsgPower.put("power",cal.getPotenciaTermicaW() );
+                    inSwMsgPower.put("unit", "W");
+                    inSwMsgPower.put("ts", ts);
+                    Map<String, Object> inSwMsgEnergy = new HashMap<>();
+                    inSwMsgEnergy.put("deviceId", "indoor-sw");
+                    inSwMsgEnergy.put("energy",cal.getConsumoElectricoW());
+                    inSwMsgEnergy.put("unit", "Wh");
+                    inSwMsgEnergy.put("ts", ts);
+
+
+
+
+
+                    /*
                     Map<String, Object> inMsg = new HashMap<>();
                     inMsg.put("sensorId", "indoor-ht");
                     inMsg.put("type", "temperature");
@@ -94,8 +136,17 @@ public class SensorMqttRunner {
                     inMsg.put("value", Math.round(newTin * 10.0) / 10.0);
                     inMsg.put("ts", ts);
 
-                    pub.publishJson(TOPIC_OUTDOOR, gson.toJson(outMsg), QOS, RETAIN);
-                    pub.publishJson(TOPIC_INDOOR,  gson.toJson(inMsg),  QOS, RETAIN);
+                     */
+
+                    pub.publishJson(TOPIC_OUTDOOR, gson.toJson(outMsgTemp), QOS, RETAIN);
+                    pub.publishJson(TOPIC_OUTDOOR_H, gson.toJson(outMsgHum), QOS, RETAIN);
+
+                    pub.publishJson(TOPIC_R1_T,  gson.toJson(inMsgTemp),  QOS, RETAIN);
+                    pub.publishJson(TOPIC_R1_H,  gson.toJson(inMsgHum),  QOS, RETAIN);
+
+                    pub.publishJson(TOPIC_SW1_S,  gson.toJson(inSwMsgState),  QOS, RETAIN);
+                    pub.publishJson(TOPIC_SW1_P,  gson.toJson(inSwMsgPower),  QOS, RETAIN);
+                    pub.publishJson(TOPIC_SW1_E,  gson.toJson(inSwMsgEnergy),  QOS, RETAIN);
 
                     System.out.printf("OUT %.1f°C | IN %.1f°C | calef:%s%n",
                             TEMP_EXTERIOR, newTin, calefOn ? "ON" : "OFF");
