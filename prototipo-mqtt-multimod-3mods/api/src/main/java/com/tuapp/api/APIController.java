@@ -3,34 +3,39 @@ package com.tuapp.api;
 import java.time.Instant;
 import java.util.List;
 import java.util.Arrays;
+import java.util.stream.Collectors;
+import java.util.Optional;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 // Importar los DTOs necesarios
 import com.tuapp.api.dto.Room;
 import com.tuapp.api.dto.Sensor;
 import com.tuapp.api.dto.Switch;
 import com.tuapp.api.dto.TemperaturaDTO;
+import com.tuapp.api.mongo.MongoRepo;
 import com.tuapp.api.dto.HumedadDTO;
 import com.tuapp.api.dto.EnergiaDTO;
+import com.tuapp.api.mongo.MongoReading; // Importar MongoReading
+import com.tuapp.api.mongo.MongoReading.RawEntry; // Importar RawEntry
 
 @RestController
 @RequestMapping("/api")
 public class APIController {
+	
+	private final MongoRepo readingRepo;
 
+    public APIController(MongoRepo readingRepo) {
+        this.readingRepo = readingRepo;
+    }
+
+    // El método createRoom se deja como está, ya que es de 'setup' y no de lectura.
     // ---- ROOMS ----
-
-    /**
-     * cURL Test: Crear una nueva habitación
-     curl -X POST "http://localhost:8080/api/rooms" -H "Content-Type: application/json" -d "{\"sensors\": 3}" --user "IoTEste:1234"
-     */
     @PostMapping("/rooms")
-    @ResponseStatus(HttpStatus.CREATED) // Corresponde al 201 de tu OpenAPI
+    @ResponseStatus(HttpStatus.CREATED)
     public Room createRoom(@RequestBody Object body) {
-        // En un controlador real, procesarías 'body' para saber cuántos sensores crear.
-        // Aquí retornamos un objeto Room de prueba (Schema Room).
-        
         List<Sensor> sensores = Arrays.asList(
             new Sensor("1"),
             new Sensor("2")
@@ -38,51 +43,81 @@ public class APIController {
         List<Switch> switches = Arrays.asList(
             new Switch("101")
         );
-        
         return new Room("room-test-1", sensores, switches);
     }
 
+    // --------------------------------------------------------------------------
     // ---- SENSORS ----
 
     /**
      * cURL Test: Consultar última temperatura
-     curl -X GET "http://localhost:8080/api/rooms/room-1/sensors/1/temperature/latest" --user "IoTEste:1234"
      */
-    // Schema: LecturaTemperatura
     @GetMapping("/rooms/{roomId}/sensors/{sensorId}/temperature/latest")
     public TemperaturaDTO getLatestTemperature(
             @PathVariable String roomId,
             @PathVariable String sensorId) {
         
-        return new TemperaturaDTO(
-            22.4, 
-            "°C", 
-            Instant.now()
-        );
+        String topic = "sensors/" + roomId + "/" + sensorId;
+        
+        Optional<MongoReading> readingOpt = readingRepo.findByTopic(topic);
+        
+        if (readingOpt.isEmpty() || readingOpt.get().getRaws().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No data found for sensor " + sensorId + " in room " + roomId);
+        }
+
+        // Obtener la última lectura (último elemento de la lista raws)
+        MongoReading reading = readingOpt.get();
+        RawEntry latestRaw = reading.getRaws().get(reading.getRaws().size() - 1);
+        
+        // Asumimos que el payload JSON tiene la clave "temp"
+        if (latestRaw.getPayload().containsKey("temp")) {
+            Double temp = ((Number) latestRaw.getPayload().get("temp")).doubleValue();
+            
+            return new TemperaturaDTO(
+                temp, 
+                "°C", 
+                Instant.ofEpochMilli(latestRaw.getTs())
+            );
+        } else {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Temperature data not found in latest payload for topic " + topic);
+        }
     }
 
     /**
      * cURL Test: Consultar última humedad
-     curl -X GET "http://localhost:8080/api/rooms/room-1/sensors/1/humidity/latest" --user "IoTEste:1234"
      */
-    // Schema: LecturaHumedad
     @GetMapping("/rooms/{roomId}/sensors/{sensorId}/humidity/latest")
     public HumedadDTO getLatestHumidity(
             @PathVariable String roomId,
             @PathVariable String sensorId) {
             
-        return new HumedadDTO(
-            45.2, 
-            "%", 
-            Instant.now()
-        );
+        String topic = "sensors/" + roomId + "/" + sensorId;
+        Optional<MongoReading> readingOpt = readingRepo.findByTopic(topic);
+        
+        if (readingOpt.isEmpty() || readingOpt.get().getRaws().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No data found for sensor " + sensorId + " in room " + roomId);
+        }
+
+        MongoReading reading = readingOpt.get();
+        RawEntry latestRaw = reading.getRaws().get(reading.getRaws().size() - 1);
+        
+        // Asumimos que el payload JSON tiene la clave "hum"
+        if (latestRaw.getPayload().containsKey("hum")) {
+            Double hum = ((Number) latestRaw.getPayload().get("hum")).doubleValue();
+            
+            return new HumedadDTO(
+                hum, 
+                "%", 
+                Instant.ofEpochMilli(latestRaw.getTs())
+            );
+        } else {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Humidity data not found in latest payload for topic " + topic);
+        }
     }
 
     /**
      * cURL Test: Consultar secuencia de temperatura
-     curl -X GET "http://localhost:8080/api/rooms/room-1/sensors/1/temperature/sequence?fechaInicio=2025-09-01T00:00:00Z&fechaFin=2025-09-30T23:59:59Z" --user "IoTEste:1234"
      */
-    // Schema: SecuenciaTemperatura (List<LecturaTemperatura>)
     @GetMapping("/rooms/{roomId}/sensors/{sensorId}/temperature/sequence")
     public List<TemperaturaDTO> getTemperatureSequence(
             @PathVariable String roomId,
@@ -90,18 +125,40 @@ public class APIController {
             @RequestParam String fechaInicio,
             @RequestParam String fechaFin) {
             
-        // Retorna una lista de dos lecturas de prueba
-        return Arrays.asList(
-            new TemperaturaDTO(23.0, "°C", Instant.now().minusSeconds(3600)),
-            new TemperaturaDTO(23.5, "°C", Instant.now())
-        );
+        String topic = "sensors/" + roomId + "/" + sensorId;
+        Optional<MongoReading> readingOpt = readingRepo.findByTopic(topic);
+        
+        if (readingOpt.isEmpty() || readingOpt.get().getRaws().isEmpty()) {
+            return List.of(); // Devuelve lista vacía si no hay datos
+        }
+
+        // Convertir String a Instant y luego a milisegundos para filtrar
+        long startTs;
+        long endTs;
+        try {
+            startTs = Instant.parse(fechaInicio).toEpochMilli();
+            endTs = Instant.parse(fechaFin).toEpochMilli();
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid date format. Use ISO 8601 (e.g., 2025-09-01T00:00:00Z)");
+        }
+        
+        return readingOpt.get().getRaws().stream()
+            .filter(raw -> raw.getTs() >= startTs && raw.getTs() <= endTs)
+            .filter(raw -> raw.getPayload().containsKey("temp")) // Solo si contiene temp
+            .map(raw -> {
+                Double temp = ((Number) raw.getPayload().get("temp")).doubleValue();
+                return new TemperaturaDTO(
+                    temp, 
+                    "°C", 
+                    Instant.ofEpochMilli(raw.getTs())
+                );
+            })
+            .collect(Collectors.toList());
     }
 
     /**
      * cURL Test: Consultar secuencia de humedad
-     curl -X GET "http://localhost:8080/api/rooms/room-1/sensors/1/humidity/sequence?fechaInicio=2025-09-01T00:00:00Z&fechaFin=2025-09-30T23:59:59Z" --user "IoTEste:1234"
      */
-    // Schema: SecuenciaHumedad (List<LecturaHumedad>)
     @GetMapping("/rooms/{roomId}/sensors/{sensorId}/humidity/sequence")
     public List<HumedadDTO> getHumiditySequence(
             @PathVariable String roomId,
@@ -109,29 +166,74 @@ public class APIController {
             @RequestParam String fechaInicio,
             @RequestParam String fechaFin) {
             
-        // Retorna una lista de dos lecturas de prueba
-        return Arrays.asList(
-            new HumedadDTO(40.0, "%", Instant.now().minusSeconds(3600)),
-            new HumedadDTO(41.5, "%", Instant.now())
-        );
+        String topic = "sensors/" + roomId + "/" + sensorId;
+        Optional<MongoReading> readingOpt = readingRepo.findByTopic(topic);
+        
+        if (readingOpt.isEmpty() || readingOpt.get().getRaws().isEmpty()) {
+            return List.of(); // Devuelve lista vacía si no hay datos
+        }
+
+        // Convertir String a Instant y luego a milisegundos para filtrar
+        long startTs;
+        long endTs;
+        try {
+            startTs = Instant.parse(fechaInicio).toEpochMilli();
+            endTs = Instant.parse(fechaFin).toEpochMilli();
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid date format. Use ISO 8601 (e.g., 2025-09-01T00:00:00Z)");
+        }
+        
+        return readingOpt.get().getRaws().stream()
+            .filter(raw -> raw.getTs() >= startTs && raw.getTs() <= endTs)
+            .filter(raw -> raw.getPayload().containsKey("hum")) // Solo si contiene hum
+            .map(raw -> {
+                Double hum = ((Number) raw.getPayload().get("hum")).doubleValue();
+                return new HumedadDTO(
+                    hum, 
+                    "%", 
+                    Instant.ofEpochMilli(raw.getTs())
+                );
+            })
+            .collect(Collectors.toList());
     }
 
+    // --------------------------------------------------------------------------
     // ---- SWITCHES ----
 
     /**
      * cURL Test: Consultar consumo energético
-     curl -X GET "http://localhost:8080/api/rooms/room-1/switches/101/energy/consumption" --user "IoTEste:1234"
      */
-    // Schema: EnergiaShelly
     @GetMapping("/rooms/{roomId}/switches/{switchId}/energy/consumption")
     public EnergiaDTO getEnergyConsumption(
             @PathVariable String roomId,
             @PathVariable String switchId) {
             
-        return new EnergiaDTO(
-            3.75, 
-            "kWh", 
-            Instant.now().minusSeconds(86400) // 24 horas atrás
-        );
+        String topic = "switches/" + roomId + "/" + switchId;
+        Optional<MongoReading> readingOpt = readingRepo.findByTopic(topic);
+        
+        if (readingOpt.isEmpty() || readingOpt.get().getRaws().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No data found for switch " + switchId + " in room " + roomId);
+        }
+
+        MongoReading reading = readingOpt.get();
+        RawEntry latestRaw = reading.getRaws().get(reading.getRaws().size() - 1);
+        
+        // Asumimos que el payload JSON tiene la clave "energy_kwh"
+        if (latestRaw.getPayload().containsKey("energy_kwh")) {
+            Double energy = ((Number) latestRaw.getPayload().get("energy_kwh")).doubleValue();
+            
+            return new EnergiaDTO(
+                energy, 
+                "kWh", 
+                Instant.ofEpochMilli(latestRaw.getTs())
+            );
+        } else {
+            // Si el payload del switch no contiene la clave de energía, devolvemos 0 o lanzamos excepción
+             return new EnergiaDTO(
+                0.0, 
+                "kWh", 
+                Instant.ofEpochMilli(latestRaw.getTs())
+            );
+        }
     }
 }

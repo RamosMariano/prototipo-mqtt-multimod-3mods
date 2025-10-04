@@ -68,6 +68,22 @@ services:
       - MONGO_DB=${MONGO_INITDB_DATABASE:-iotdb}
       - MONGO_COLLECTION=${MONGO_COLLECTION:-readings}
 
+  api-rest:
+    build:
+      context: . # Asume que el Dockerfile de la API está en la carpeta 'api' o en la raíz y usa la ruta 'api/target/*.jar'
+      dockerfile: api/Dockerfile # Usará el Dockerfile de la API que proporcionaste
+    restart: unless-stopped
+    ports:
+      - "8080:8080" # Mapea el puerto 8080 del host al puerto 8080 del contenedor
+    depends_on:
+      mongodb:
+        condition: service_healthy # Espera que MongoDB esté listo y saludable
+    environment:
+      # Configuración de MongoDB para Spring Boot
+      # Spring Boot espera la configuración de Mongo en este formato:
+      - SPRING_DATA_MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME:-iot}:${MONGO_INITDB_ROOT_PASSWORD:-iotpass}@mongodb:27017/${MONGO_INITDB_DATABASE:-iotdb}?authSource=admin
+      - SPRING_DATA_MONGODB_DATABASE=${MONGO_INITDB_DATABASE:-iotdb}
+
   simulator:
     build:
       context: .
