@@ -9,20 +9,20 @@ import org.eclipse.paho.client.mqttv3.MqttException;
 public class ConsumerApplication {
     public static void main(String[] args) throws MqttException, InterruptedException {
         Env env = Env.fromEnv();
-        System.out.printf("[consumer] broker=%s:%d topics=[%s,%s] setpoint=%.1f%n",
-                env.host(), env.port(), env.topicOutdoor(), env.topicIndoor(), env.setpoint());
+        System.out.printf("[consumer] broker=%s:%d setpoint=%.1f%n",
+                env.host(), env.port(), env.setpoint());
 
-        // Servicio de reglas/decisiones
+        // Servicio de reglas/decisiones (lo dejamos listo, aunque no lo usemos aún)
         DecisionService decision = new DecisionService(env.setpoint());
 
         // Servicio Mongo (try-with-resources asegura cierre)
         try (MongoService mongo = new MongoService()) {
 
-            // Subscriber ahora recibe también MongoService
+            // Subscriber: ahora solo formato NUEVO + consolidación por topic
             MqttSubscriber subscriber = new MqttSubscriber(env, decision, mongo);
             subscriber.start();
 
-            System.out.println("[consumer] listo. esperando mensajes…");
+            System.out.println("[consumer] listo. suscripto a sensors/+/+ y switches/+/+. esperando mensajes…");
 
             // Hook de cierre ordenado (por si recibís SIGTERM en Docker, etc.)
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
