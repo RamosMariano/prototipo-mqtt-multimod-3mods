@@ -98,6 +98,7 @@ services:
       broker-mqtt:
         condition: service_started
     environment:
+      - CLIENT_ID=sim-room1
       - BROKER_HOST=broker-mqtt
       - BROKER_PORT=1883
       - SIM_ROOM_ID=room1
@@ -124,6 +125,7 @@ services:
       broker-mqtt:
         condition: service_started
     environment:
+      - CLIENT_ID=sim-room2
       - BROKER_HOST=broker-mqtt
       - BROKER_PORT=1883
       - SIM_ROOM_ID=room2
