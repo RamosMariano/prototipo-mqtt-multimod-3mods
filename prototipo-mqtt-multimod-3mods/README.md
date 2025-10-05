@@ -1,7 +1,7 @@
 # Prototipo MQTT Multimódulos
 
 Proyecto de prototipo IoT basado en **MQTT**, estructurado como **proyecto multimódulo Maven**.  
-Incluye simuladores de sensores, un consumidor de mensajes y una API con Spring Boot.
+Incluye simuladores de sensores, un consumidor de mensajes con persistencia en MongoDB y una API con Spring Boot.
 
 ---
 
@@ -11,8 +11,8 @@ Incluye simuladores de sensores, un consumidor de mensajes y una API con Spring 
 prototipo-mqtt-multimod-3mods/
 │
 ├── api/                # Módulo Spring Boot (exposición de endpoints REST)
-├── consumer/           # Módulo Java plano (suscriptor de tópicos MQTT)
-├── simulator/          # Módulo Java plano (publicador de mensajes simulados)
+├── consumer/           # Módulo Java plano (suscriptor MQTT + persistencia en MongoDB)
+├── simulator/          # Módulo Java plano (publicador de mensajes simulados y receptor de órdenes ON/OFF)
 ├── docker-compose.yml  # Orquestación de broker MQTT + servicios
 └── pom.xml             # POM padre (gestiona dependencias y módulos)
 ```
@@ -21,10 +21,16 @@ prototipo-mqtt-multimod-3mods/
 
 ## 🚀 Servicios
 
-- **Broker MQTT**: Eclipse Mosquitto (contenedor `broker-mqtt`)
-- **Consumer**: Suscribe a tópicos MQTT y procesa mensajes
-- **Simulator**: Publica datos de sensores simulados (ej. temperatura, humedad)
-- **API**: Servicio Spring Boot que en el futuro centralizará la lógica y exposición de datos
+- **Broker MQTT** → Eclipse Mosquitto (`broker-mqtt`)  
+  Gestiona la comunicación entre publicadores y suscriptores.
+
+- **Consumer** → Suscribe a tópicos MQTT, procesa los mensajes y los **persiste en MongoDB**.  
+  Incluye **Mongo Express** como cliente web para visualizar los datos en `http://localhost:8081`.
+
+- **Simulator V2** → Publica datos de sensores simulados (temperatura, humedad, consumo, etc.)  
+  Además, **expone endpoints HTTP** para recibir órdenes de encendido y apagado de switches simulados.
+
+- **API** → Servicio Spring Boot que centralizará la lógica de negocio y exposición de datos en futuras versiones.
 
 ---
 
@@ -71,16 +77,44 @@ prototipo-mqtt-multimod-3mods/
    }
    ```
 
-2. El **consumer** se suscribe a los tópicos, procesa los mensajes y los imprime en logs.
+2. El **consumer** se suscribe a los tópicos, procesa los mensajes y los almacena en MongoDB en una colección por `topic`.
 
-3. El **broker Mosquitto** gestiona la comunicación entre publicadores y suscriptores.
+3. El **broker Mosquitto** intermedia la comunicación MQTT.
+
+---
+
+## 🧠 Persistencia en MongoDB
+
+El módulo **consumer** guarda los mensajes en MongoDB agrupados por tópico.  
+Cada documento incluye los últimos mensajes recibidos hasta un máximo de **110 000 elementos** por tópico.
+
+Mongo Express permite consultar fácilmente la base en:  
+👉 **http://localhost:8081**
+
+---
+
+## 🛰️ Endpoints del simulador (ON/OFF switches)
+
+El **simulator V2** ahora incluye un pequeño servidor HTTP embebido para recibir comandos externos.  
+Ejemplo de uso con `curl`:
+
+```bash
+# Encender calefactor de room1 (puerto 8099)
+curl -X POST "http://localhost:8099/rooms/room1/heater?on=true"
+
+# Encender calefactor de room2 (puerto 8100)
+curl -X POST "http://localhost:8100/rooms/room2/heater?on=true"
+```
+
+El simulador ajusta internamente el estado de los dispositivos y publica los cambios vía MQTT.  
+Se corrigieron los valores de **power** y **energy** para reflejar consumos reales simulados.
 
 ---
 
 ## ⏱️ Configuración del intervalo de publicación del simulador
 
-
-Variable de entorno `SIM_PUBLISH_INTERVAL_MS` para definir el **intervalo de publicación** en milisegundos (por defecto `300000 ms = 5 min`).
+Variable de entorno `SIM_PUBLISH_INTERVAL_MS` define el **intervalo de publicación** (ms).  
+Por defecto: `300000 ms` (5 minutos).
 
 Ejemplo en `docker-compose.yml`:
 
@@ -97,27 +131,17 @@ Ejemplo en `docker-compose.yml`:
       - TOPIC_OUTDOOR=sensors/outdoor/temperature
       - TOPIC_INDOOR=sensors/indoor/temperature
       - SETPOINT=21
-      # Intervalo de publicación en milisegundos (default = 300000 ms = 5 min)
+      # Intervalo de publicación (default = 300000 ms = 5 min)
       - SIM_PUBLISH_INTERVAL_MS=${SIM_PUBLISH_INTERVAL_MS:-300000}
 ```
-
-
 
 ---
 
 ## 🛠️ Requisitos
 
-- Docker y Docker Compose instalados
-- Maven 3.9+ y JDK 17+ (para compilar módulos)
-
----
-
-## 📌 Próximos pasos
-
-- Conectar el **consumer** con la **API Spring Boot**
-- Guardar los datos procesados en base de datos
-- Exponer endpoints REST en la API para consultar las mediciones
-- Agregar tests automáticos con GitHub Actions (CI/CD)
+- **Docker** y **Docker Compose**
+- **Maven 3.9+**
+- **JDK 21+**
 
 ---
 
