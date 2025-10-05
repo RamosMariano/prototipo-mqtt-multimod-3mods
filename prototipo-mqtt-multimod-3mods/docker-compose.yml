@@ -2,6 +2,7 @@ services:
   broker-mqtt:
     image: eclipse-mosquitto:2
     container_name: broker-mqtt
+    restart: unless-stopped
     ports:
       - "1883:1883"
       - "9001:9001"
@@ -51,6 +52,8 @@ services:
     build:
       context: .
       dockerfile: consumer/Dockerfile
+    container_name: consumer
+    restart: unless-stopped
     depends_on:
       broker-mqtt:
         condition: service_started
@@ -70,34 +73,70 @@ services:
 
   api-rest:
     build:
-      context: . # Asume que el Dockerfile de la API está en la carpeta 'api' o en la raíz y usa la ruta 'api/target/*.jar'
-      dockerfile: api/Dockerfile # Usará el Dockerfile de la API que proporcionaste
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: api-rest
     restart: unless-stopped
     ports:
-      - "8080:8080" # Mapea el puerto 8080 del host al puerto 8080 del contenedor
+      - "8080:8080"
     depends_on:
       mongodb:
-        condition: service_healthy # Espera que MongoDB esté listo y saludable
+        condition: service_healthy
     environment:
-      # Configuración de MongoDB para Spring Boot
-      # Spring Boot espera la configuración de Mongo en este formato:
       - SPRING_DATA_MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME:-iot}:${MONGO_INITDB_ROOT_PASSWORD:-iotpass}@mongodb:27017/${MONGO_INITDB_DATABASE:-iotdb}?authSource=admin
       - SPRING_DATA_MONGODB_DATABASE=${MONGO_INITDB_DATABASE:-iotdb}
 
-  simulator:
+  # ========= Simuladores (dos rooms) =========
+
+  simulator-room1:
     build:
       context: .
       dockerfile: simulator/Dockerfile
+    container_name: simulator-room1
+    restart: unless-stopped
     depends_on:
-      - broker-mqtt
+      broker-mqtt:
+        condition: service_started
     environment:
       - BROKER_HOST=broker-mqtt
       - BROKER_PORT=1883
-      - TOPIC_OUTDOOR=sensors/outdoor/temperature
-      - TOPIC_INDOOR=sensors/indoor/temperature
-      - SETPOINT=21
-      # Intervalo de publicación en milisegundos (default = 300000 ms = 5 min)
+      - SIM_ROOM_ID=room1
+      - SIM_HTTP_PORT=8099
+      # Intervalos (ajustá si querés)
       - SIM_PUBLISH_INTERVAL_MS=${SIM_PUBLISH_INTERVAL_MS:-300000}
+      - SIM_STEP_MS=${SIM_STEP_MS:-1000}
+      # Si querés forzar topics, descomenta y ajusta:
+      # - TOPIC_R1_T=sensors/room1/temperature
+      # - TOPIC_R1_H=sensors/room1/humidity
+      # - TOPIC_SW1_S=switches/room1/state
+      # - TOPIC_SW1_P=switches/room1/power
+      # - TOPIC_SW1_E=switches/room1/energy
+    ports:
+      - "8099:8099"   # control HTTP de room1
+
+  simulator-room2:
+    build:
+      context: .
+      dockerfile: simulator/Dockerfile
+    container_name: simulator-room2
+    restart: unless-stopped
+    depends_on:
+      broker-mqtt:
+        condition: service_started
+    environment:
+      - BROKER_HOST=broker-mqtt
+      - BROKER_PORT=1883
+      - SIM_ROOM_ID=room2
+      - SIM_HTTP_PORT=8099
+      - SIM_PUBLISH_INTERVAL_MS=${SIM_PUBLISH_INTERVAL_MS:-300000}
+      - SIM_STEP_MS=${SIM_STEP_MS:-1000}
+      # - TOPIC_R1_T=sensors/room2/temperature
+      # - TOPIC_R1_H=sensors/room2/humidity
+      # - TOPIC_SW1_S=switches/room2/state
+      # - TOPIC_SW1_P=switches/room2/power
+      # - TOPIC_SW1_E=switches/room2/energy
+    ports:
+      - "8100:8099"   # control HTTP de room2
 
 volumes:
   mongo-data:

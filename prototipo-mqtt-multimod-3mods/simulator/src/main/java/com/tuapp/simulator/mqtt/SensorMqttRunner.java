@@ -57,7 +57,7 @@ public class SensorMqttRunner {
         final String USER          = env("MQTT_USER", "");
         final String PASS          = env("MQTT_PASS", "");
 
-        // Topics (dejé los tuyos tal cual)
+        // Topics
         final String TOPIC_OUTDOOR   = env("TOPIC_OUTDOOR",   "sensors/outdoor/temperature");
         final String TOPIC_OUTDOOR_H = env("TOPIC_OUTDOOR_H", "sensors/outdoor/humidity");
         final String TOPIC_INDOOR_T  = env("TOPIC_R1_T",      "sensors/"+ROOM_ID+"/temperature");
