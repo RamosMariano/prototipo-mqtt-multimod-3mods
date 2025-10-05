@@ -1,10 +1,10 @@
 package com.tuapp.api.mongo;
 
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
-
 import java.util.List;
 import java.util.Map;
+
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 @Document(collection = "readings")
 public class MongoReading {
@@ -12,7 +12,6 @@ public class MongoReading {
     private String id;
     private String topic;
 	private long lastTs;
-    private long receivedAt;
     private int count;
     private List<RawEntry> raws;
 
@@ -38,14 +37,6 @@ public class MongoReading {
 
 	public void setLastTs(long lastTs) {
 		this.lastTs = lastTs;
-	}
-
-	public long getReceivedAt() {
-		return receivedAt;
-	}
-
-	public void setReceivedAt(long receivedAt) {
-		this.receivedAt = receivedAt;
 	}
 
 	public int getCount() {
