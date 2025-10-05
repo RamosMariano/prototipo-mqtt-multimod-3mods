@@ -1,12 +1,14 @@
 package com.tuapp.simulator.app;
+import com.tuapp.simulator.http.ControlHttpServer;
 
-import com.tuapp.simulator.domain.Habitacion;
-import com.tuapp.simulator.domain.Calefaccion;
-import com.tuapp.simulator.model.SimuladorV2;
-import com.tuapp.simulator.mqtt.SensorMqttRunner;
 
 public class SimulatorMain {
   public static void main(String[] args) throws Exception {
-    com.tuapp.simulator.mqtt.SensorMqttRunner.main(args);
+    int port = Integer.parseInt(System.getenv().getOrDefault("SIM_HTTP_PORT","8099"));
+    try (ControlHttpServer http = new ControlHttpServer(port)) {
+      http.start();
+      // Deja correr tu simulador MQTT como ya lo hacías:
+      com.tuapp.simulator.mqtt.SensorMqttRunner.main(args);
+    }
   }
 }
