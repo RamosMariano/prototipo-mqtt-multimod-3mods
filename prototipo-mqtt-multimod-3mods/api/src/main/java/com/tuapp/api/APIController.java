@@ -238,53 +238,44 @@ public List<HumedadDTO> getHumiditySequence(
     // --------------------------------------------------------------------------
     // ---- SWITCHES ----
 
-    /**
-     * cURL Test: Consultar consumo energético
-     * curl -u "IoTEste:1234" -X GET "http://localhost:8080/api/rooms/room1/switches/101/energy/consumption"
-     */
-   @GetMapping("/rooms/{roomId}/switches/{switchId}/energy/consumption")
-    public EnergiaDTO getEnergyConsumption(
-            @PathVariable String roomId,
-            @PathVariable String switchId) {
+   /**
+ * cURL Test: Consultar potencia actual (W)
+ * curl -u "IoTEste:1234" -X GET "http://localhost:8080/api/rooms/room1/switches/1/energy/currentpowerusage"
+ */
+@GetMapping("/rooms/{roomId}/switches/{switchId}/energy/currentpowerusage")
+public EnergiaDTO getCurrentPowerUsage(
+        @PathVariable String roomId,
+        @PathVariable String switchId) {
+            
+    String topic = "switches/" + roomId + "/power"; 
     
-        String topic = "switches/" + roomId + "/energy"; 
-        
-        Optional<MongoReading> readingOpt = readingRepo.findByTopic(topic);
-        
-        if (readingOpt.isEmpty() || readingOpt.get().getRaws().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No data found for switch " + switchId + " in room " + roomId);
-        }
-
-        MongoReading reading = readingOpt.get();
-        RawEntry latestRaw = reading.getRaws().get(reading.getRaws().size() - 1);
-
-        if (latestRaw.getPayload().containsKey("energy")) {
-            Double energy = ((Number) latestRaw.getPayload().get("energy")).doubleValue();
-
-            Object unitObject = latestRaw.getPayload().get("unit");
-            String unit = (unitObject instanceof String) ? (String) unitObject : "kWh";
-            
-            Double finalEnergy = energy;
-            if (unit.equals("Wh")) {
-                finalEnergy = energy / 1000.0;
-                unit = "kWh";
-            } else if (unit.equals("kWh")) {
-                finalEnergy = energy;
-            } 
-            
-            return new EnergiaDTO(
-                finalEnergy, 
-                unit, 
-                Instant.ofEpochMilli(latestRaw.getTs())
-            );
-        } else {
-             return new EnergiaDTO(
-                0.0, 
-                "kWh", 
-                Instant.ofEpochMilli(latestRaw.getTs())
-            );
-        }
+    Optional<MongoReading> readingOpt = readingRepo.findByTopic(topic);
+    
+    if (readingOpt.isEmpty() || readingOpt.get().getRaws().isEmpty()) {
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No data found for switch " + switchId + " in room " + roomId);
     }
+
+    MongoReading reading = readingOpt.get();
+    RawEntry latestRaw = reading.getRaws().get(reading.getRaws().size() - 1);
+
+    if (latestRaw.getPayload().containsKey("power")) {
+        Double power = ((Number) latestRaw.getPayload().get("power")).doubleValue();
+
+        String unit = "W";
+        
+        return new EnergiaDTO(
+            power, 
+            unit, 
+            Instant.ofEpochMilli(latestRaw.getTs())
+        );
+    } else {
+         return new EnergiaDTO(
+            0.0, 
+            "W", 
+            Instant.ofEpochMilli(latestRaw.getTs())
+         );
+    }
+}
     
     /**
      * cURL Test
