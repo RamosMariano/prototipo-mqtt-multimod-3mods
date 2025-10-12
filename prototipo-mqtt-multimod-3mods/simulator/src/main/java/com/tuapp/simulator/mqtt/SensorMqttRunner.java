@@ -4,6 +4,136 @@ import com.google.gson.Gson;
 import com.tuapp.simulator.domain.Calefaccion;
 import com.tuapp.simulator.domain.Habitacion;
 import com.tuapp.simulator.model.ModeloTermico;
+
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+
+public class SensorMqttRunner {
+
+    // ====== Helpers ENV ======
+    private static String env(String k, String def) {
+        String v = System.getenv(k);
+        return (v == null || v.isBlank()) ? def : v;
+    }
+    private static double envd(String k, double def) {
+        try { return Double.parseDouble(env(k, ""+def)); }
+        catch (Exception e) { return def; }
+    }
+    private static int envi(String k, int def) {
+        try { return Integer.parseInt(env(k, ""+def)); }
+        catch (Exception e) { return def; }
+    }
+    private static long envl(String k, long def) {
+        try { return Long.parseLong(env(k, ""+def)); }
+        catch (Exception e) { return def; }
+    }
+
+    public static void main(String[] args) throws Exception {
+        // ====== MQTT ======
+        final String BROKER_HOST   = env("BROKER_HOST", "broker-mqtt");
+        final String BROKER_PORT   = env("BROKER_PORT", "1883");
+        final String BROKER_URL    = "tcp://" + BROKER_HOST + ":" + BROKER_PORT;
+        final String CLIENT_ID     = env("CLIENT_ID", "sim-ht-" + System.currentTimeMillis());
+        final String USER          = env("MQTT_USER", "");
+        final String PASS          = env("MQTT_PASS", "");
+        final String TOPIC_OUTDOOR = env("TOPIC_OUTDOOR", "sensors/outdoor/temperature");
+        final String TOPIC_INDOOR  = env("TOPIC_INDOOR",  "sensors/indoor/temperature");
+        final int QOS              = envi("MQTT_QOS", 0);
+        final boolean RETAIN       = Boolean.parseBoolean(env("MQTT_RETAIN", "false"));
+
+        // ====== Simulación (time warp) ======
+        final long STEP_MS_REAL            = envl("SIM_STEP_MS", 1000L);      // paso real (sleep)
+        final double SIM_SPEED             = envd("SIM_SPEED", 60.0);         // 60×: 1s real = 60s simulados
+        final long PUBLISH_INTERVAL_MS_SIM = envl("SIM_PUBLISH_INTERVAL_MS", 300_000L); // 5 min simulados
+
+        // ====== Modelo térmico ======
+        final double TEMP_EXTERIOR = envd("TEMP_EXTERIOR", 8.0);
+        final double TEMP_INICIAL  = envd("TEMP_INICIAL", 25.0);
+        final double SETPOINT      = envd("SETPOINT", 21.0);
+        final double HISTERESIS    = envd("HISTERESIS", 3.0);
+        final double C             = envd("CAPACIDAD_TERMICA", 1_600_000.0); // J/K
+        final double UA            = envd("UA", 75.0);                       // W/K
+        final double PIN_W         = envd("POT_TERMICA", 1600.0);            // W térmicos
+        final double PEL_W         = envd("POT_ELECTRICA", 1067.0);          // W eléctricos (info/log)
+
+        // ====== Estado inicial ======
+        Habitacion hab = new Habitacion(TEMP_INICIAL);
+        ModeloTermico modelo = new ModeloTermico(C, UA);
+        Calefaccion cal = new Calefaccion(PIN_W, PEL_W, C);
+        Gson gson = new Gson();
+
+        // Reloj simulado: arranca desde "ahora", pero lo avanzamos acelerado
+        long simTs = Instant.now().toEpochMilli();
+        long accSimMs = 0;
+
+        try (MqttPublisher pub = new MqttPublisher(BROKER_URL, CLIENT_ID, USER, PASS)) {
+            pub.connect();
+            System.out.printf("Conectado a MQTT en %s | SIM_SPEED=%.2f× | pub cada %d ms simulados%n",
+                    BROKER_URL, SIM_SPEED, PUBLISH_INTERVAL_MS_SIM);
+
+            boolean calefOn = false;
+
+            while (true) {
+                // --- Control ON/OFF con histéresis en base a la T interior actual ---
+                double Tin = hab.getTemperaturaInterior();
+                if (Tin <= (SETPOINT - HISTERESIS)) calefOn = true;
+                else if (Tin >= SETPOINT)           calefOn = false;
+
+                double Pin = calefOn ? cal.getPotenciaTermica() : 0.0;
+
+                // --- Avanzar física con dt SIMULADO ---
+                double dtSecondsSim = (STEP_MS_REAL / 1000.0) * SIM_SPEED; // ej: 1s real * 60 = 60s simulados
+                double newTin = modelo.paso(Tin, TEMP_EXTERIOR, Pin, dtSecondsSim);
+                hab.setTemperaturaInterior(newTin);
+
+                // --- Avanzar reloj simulado ---
+                long deltaSimMs = (long) Math.round(STEP_MS_REAL * SIM_SPEED);
+                simTs += deltaSimMs;
+                accSimMs += deltaSimMs;
+
+                // --- Publicar cada intervalo SIMULADO ---
+                if (accSimMs >= PUBLISH_INTERVAL_MS_SIM) {
+                    long ts = simTs; // usar timestamp simulado en el payload
+
+                    Map<String, Object> outMsg = new HashMap<>();
+                    outMsg.put("sensorId", "outdoor-ht");
+                    outMsg.put("type", "temperature");
+                    outMsg.put("unit", "C");
+                    outMsg.put("value", TEMP_EXTERIOR);
+                    outMsg.put("ts", ts);
+
+                    Map<String, Object> inMsg = new HashMap<>();
+                    inMsg.put("sensorId", "indoor-ht");
+                    inMsg.put("type", "temperature");
+                    inMsg.put("unit", "C");
+                    inMsg.put("value", Math.round(newTin * 10.0) / 10.0);
+                    inMsg.put("ts", ts);
+
+                    pub.publishJson(TOPIC_OUTDOOR, gson.toJson(outMsg), QOS, RETAIN);
+                    pub.publishJson(TOPIC_INDOOR,  gson.toJson(inMsg),  QOS, RETAIN);
+
+                    System.out.printf(
+                            "[PUB] simTs=%s | OUT %.1f°C | IN %.1f°C | calef:%s%n",
+                            Instant.ofEpochMilli(ts), TEMP_EXTERIOR, newTin, (calefOn ? "ON" : "OFF")
+                    );
+
+                    accSimMs = 0; // reiniciar acumulador simulado
+                }
+
+                // --- Paso real para controlar CPU ---
+                Thread.sleep(STEP_MS_REAL);
+            }
+        }
+    }
+}
+
+/*package com.tuapp.simulator.mqtt;
+
+import com.google.gson.Gson;
+import com.tuapp.simulator.domain.Calefaccion;
+import com.tuapp.simulator.domain.Habitacion;
+import com.tuapp.simulator.model.ModeloTermico;
 import com.tuapp.simulator.core.HeaterStateRegistry;
 
 import java.time.Instant;
@@ -36,7 +166,7 @@ public class SensorMqttRunner {
 
     private static double round1(double v) { return Math.round(v * 10.0) / 10.0; }
 
-    /** Integra energía Wh = ∫(W * dt[h]) */
+    /** Integra energía Wh = ∫(W * dt[h]) *//*
     private static double integrateEnergyWh(String roomId, double instantW, long nowMs) {
         long prev = lastTs.getOrDefault(roomId, nowMs);
         lastTs.put(roomId, nowMs);
@@ -173,3 +303,4 @@ public class SensorMqttRunner {
         }
     }
 }
+*/
