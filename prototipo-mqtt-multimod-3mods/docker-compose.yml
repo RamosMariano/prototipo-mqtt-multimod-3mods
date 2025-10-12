@@ -103,9 +103,10 @@ services:
       - BROKER_PORT=1883
       - SIM_ROOM_ID=room1
       - SIM_HTTP_PORT=8099
-      # Intervalos (ajustá si querés)
-      - SIM_PUBLISH_INTERVAL_MS=${SIM_PUBLISH_INTERVAL_MS:-300000}
-      - SIM_STEP_MS=${SIM_STEP_MS:-1000}
+      # --- Time warp ---
+      - SIM_STEP_MS=${SIM_STEP_MS:-1000}                 # paso real (sleep)
+      - SIM_SPEED=${SIM_SPEED:-60.0}                     # 60×: 1s real = 60s simulados
+      - SIM_PUBLISH_INTERVAL_MS=${SIM_PUBLISH_INTERVAL_MS:-300000}  # 5 min simulados
       # Si querés forzar topics, descomenta y ajusta:
       # - TOPIC_R1_T=sensors/room1/temperature
       # - TOPIC_R1_H=sensors/room1/humidity
@@ -130,8 +131,10 @@ services:
       - BROKER_PORT=1883
       - SIM_ROOM_ID=room2
       - SIM_HTTP_PORT=8099
-      - SIM_PUBLISH_INTERVAL_MS=${SIM_PUBLISH_INTERVAL_MS:-300000}
+      # --- Time warp ---
       - SIM_STEP_MS=${SIM_STEP_MS:-1000}
+      - SIM_SPEED=${SIM_SPEED:-60.0}
+      - SIM_PUBLISH_INTERVAL_MS=${SIM_PUBLISH_INTERVAL_MS:-300000}
       # - TOPIC_R1_T=sensors/room2/temperature
       # - TOPIC_R1_H=sensors/room2/humidity
       # - TOPIC_SW1_S=switches/room2/state
